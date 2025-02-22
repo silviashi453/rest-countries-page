@@ -2,44 +2,46 @@
 
 import React from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { useEffect } from "react";
 import { ClipLoader } from "react-spinners";
 import { Country } from "@/types/country";
+import { useQuery } from "@tanstack/react-query";
+
+const fetchCountry = async (name: string): Promise<Country | null> => {
+  const res = await fetch(`https://restcountries.com/v3.1/name/${name}`);
+  const data = await res.json();
+  return data?.length > 0 ? data[0] : null;
+};
+
+const fetchBorders = async (borders: string[]): Promise<Country[]> => {
+  if (borders.length === 0) return [];
+  const res = await fetch(
+    `https://restcountries.com/v3.1/alpha?codes=${borders.join(",")}`
+  );
+  return res.json();
+};
 
 const CountryPage = () => {
   const router = useRouter();
   const { name } = useParams();
-  const [country, setCountry] = useState<Country | null>(null);
-  const [borders, setBorders] = useState<Country[]>([]);
 
-  useEffect(() => {
-    const fetchCountry = async () => {
-      try {
-        const res = await fetch(`https://restcountries.com/v3.1/name/${name}`);
-        const data = await res.json();
-        if (data && data.length > 0) {
-          if (data[0].borders) {
-            const bordersJoin = data[0].borders.join(",");
-            console.log("Borders ", bordersJoin);
-            const resBorders = await fetch(
-              `https://restcountries.com/v3.1/alpha?codes=${bordersJoin}`
-            );
-            const dataBorders = await resBorders.json();
-            setBorders(dataBorders);
-          }
-          setCountry(data[0]);
-        } else {
-          setCountry(null);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    };
+  // Fetch country data
+  const {
+    data: country,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["country", name],
+    queryFn: () => fetchCountry(name as string),
+    staleTime: 1000 * 60 * 5, // Cache selama 5 menit
+  });
 
-    if (name) fetchCountry();
-  }, [name]);
+  // Fetch border countries
+  const { data: borders = [] } = useQuery({
+    queryKey: ["borders", country?.borders],
+    queryFn: () => fetchBorders(country?.borders || []),
+    enabled: !!country?.borders, // Hanya fetch jika ada borders
+  });
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -49,12 +51,16 @@ const CountryPage = () => {
     }
   };
 
-  if (!country)
+  if (isLoading)
     return (
       <div className="h-screen flex justify-center items-center">
         <ClipLoader color="#3498db" size={50} />
       </div>
     );
+
+  if (isError || !country) {
+    return <div className="items-center text-red-500">Country not found</div>;
+  }
 
   return (
     <div className="flex flex-col px-[28px] xl:px-[80px] py-[40px] xl:py-[80px] text-black dark:text-white">

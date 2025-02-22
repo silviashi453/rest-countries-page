@@ -3,33 +3,35 @@ import Input from "@/components/input";
 import FilterDropdown from "@/components/filter";
 import CountryBox from "@/components/countryBox";
 import { Country } from "@/types/country";
-import { Key, useState, useEffect, useMemo } from "react";
+import { Key, useState, useMemo } from "react";
 import { ClipLoader } from "react-spinners";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [query, setQuery] = useState("");
-  const [countries, setCountries] = useState([]);
 
-  useEffect(() => {
-    const fetchCountries = async () => {
-      try {
-        let url =
-          "https://restcountries.com/v3.1/all?fields=name,flags,population,region,capital,cioc";
+  const fetchCountries = async (): Promise<Country[]> => {
+    const url =
+      selectedCategory === "All"
+        ? "https://restcountries.com/v3.1/all?fields=name,flags,population,region,capital,cioc"
+        : `https://restcountries.com/v3.1/region/${selectedCategory.toLowerCase()}?fields=name,flags,population,region,capital,cioc`;
 
-        if (selectedCategory != "All") {
-          url = `https://restcountries.com/v3.1/region/${selectedCategory.toLowerCase()}?fields=name,flags,population,region,capital,cioc`;
-        }
-        const res = await fetch(url);
+    const res = await fetch(url);
 
-        setCountries(await res.json());
-      } catch (e) {
-        console.error("Error fetching countries: ", e);
-      }
-    };
+    return res.json();
+  };
 
-    fetchCountries();
-  }, [selectedCategory]);
+  // Menggunakan useQuery
+  const {
+    data: countries = [],
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["countries", selectedCategory],
+    queryFn: fetchCountries,
+    staleTime: 1000 * 60 * 5, // Cache selama 5 menit
+  });
 
   const filteredCountries = useMemo(() => {
     return countries.filter((country: Country) =>
@@ -37,13 +39,22 @@ export default function Home() {
     );
   }, [query, countries]);
 
-  if (!countries) {
+  if (isLoading) {
     return (
       <div className="h-screen flex justify-center items-center">
         <ClipLoader color="#3498db" size={50} />
       </div>
     );
   }
+
+  if (isError) {
+    return (
+      <div className="h-screen flex justify-center items-center text-red-500">
+        Failed to load data
+      </div>
+    );
+  }
+
   return (
     <div className="px-[16px] md:px-[80px] md:pb-[80px] pb-[65px]">
       <div
