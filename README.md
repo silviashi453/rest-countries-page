@@ -4,7 +4,8 @@ This is a challenge from [Frontend Mentor](https://www.frontendmentor.io/challen
 
 ## 🏗️ Tech Stack
 
-- **NextJS**
+- **Next.js**
+- **React Query**
 - **Tailwind CSS**
 
 ## 🎯 Features
